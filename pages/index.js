@@ -25,16 +25,24 @@ export async function getStaticProps() {
   }`)
   scripts = scripts.replace(/async function login\(\)\{[\s\S]*?\n  \}/, `async function login(){
     loginMsg.textContent='در حال ورود...';
-    try{
-      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),12000);
-      const res=await fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:email.value.trim(),password:password.value}),signal:controller.signal}); clearTimeout(timer);
-      const out=await res.json(); if(!res.ok){loginMsg.textContent=out.error||out.message||'خطا در ورود';return}
-      me=out.user;
-      localStorage.setItem('recruitment_os_session',JSON.stringify({access_token:out.access_token,refresh_token:out.refresh_token,user:out.user}));
-      sb=supabase.createClient(URL,KEY,{global:{headers:{Authorization:'Bearer '+out.access_token}}});
-      await ensureProfile();
-      showApp();
-    }catch(e){loginMsg.textContent=e.name==='AbortError'?'ارتباط با سرور زمان‌بر شد؛ دوباره تلاش کن.':'خطا در ارتباط با سرور';}
+    const xhr=new XMLHttpRequest();
+    xhr.open('POST','/api/login',true);
+    xhr.setRequestHeader('Content-Type','application/json');
+    xhr.timeout=12000;
+    xhr.onload=async function(){
+      try{
+        const out=JSON.parse(xhr.responseText||'{}');
+        if(xhr.status<200||xhr.status>=300){loginMsg.textContent=out.error||out.message||'خطا در ورود';return}
+        me=out.user;
+        localStorage.setItem('recruitment_os_session',JSON.stringify({access_token:out.access_token,refresh_token:out.refresh_token,user:out.user}));
+        sb=supabase.createClient(URL,KEY,{global:{headers:{Authorization:'Bearer '+out.access_token}}});
+        await ensureProfile();
+        showApp();
+      }catch(e){loginMsg.textContent='خطا در پردازش پاسخ سرور';}
+    };
+    xhr.onerror=function(){loginMsg.textContent='خطا در ارتباط با سرور';};
+    xhr.ontimeout=function(){loginMsg.textContent='ارتباط با سرور زمان‌بر شد؛ دوباره تلاش کن.';};
+    xhr.send(JSON.stringify({email:email.value.trim(),password:password.value}));
   }`)
   scripts = scripts.replace(/async function signup\(\)\{[\s\S]*?\n  \}/, `async function signup(){
     loginMsg.textContent='در حال ساخت حساب...';
