@@ -1,74 +1,57 @@
 import Head from 'next/head'
-import fs from 'fs'
-import path from 'path'
+import { useEffect, useState } from 'react'
 
-export async function getStaticProps() {
-  const html = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf8')
-  const body = html.match(/<body>([\s\S]*?)<\/body>/i)?.[1] || html
-  const style = html.match(/<style>([\s\S]*?)<\/style>/i)?.[1] || ''
-  let scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/gi)].map(m => m[1]).join('\n')
-  scripts = scripts.replace("const URL='https://wpjixgfnynrboptwpotd.supabase.co',KEY='sb_publishable_IwnnE09a7GnBzIHG-Z4ssQ_gTJTqLfg';\nconst sb=supabase.createClient(URL,KEY);let me=null,profile=null,currentJob=null;", "const URL=window.location.origin+'/supabase',KEY='sb_publishable_IwnnE09a7GnBzIHG-Z4ssQ_gTJTqLfg';\nlet sb=supabase.createClient(URL,KEY);let me=null,profile=null,currentJob=null;")
-  scripts = scripts.replace(/async function boot\(\)\{[\s\S]*?else showLogin\(\)\}/, `async function boot(){
-    as.innerHTML=stages.map(x=>\`<option value="\${x[0]}">\${x[1]}</option>\`).join('');
-    const saved=localStorage.getItem('recruitment_os_session');
-    if(saved){
-      try{
-        const s=JSON.parse(saved);
-        me=s.user;
-        sb=supabase.createClient(URL,KEY,{global:{headers:{Authorization:'Bearer '+s.access_token}}});
-        await ensureProfile();
-        showApp();
-        return;
-      }catch(e){localStorage.removeItem('recruitment_os_session')}
-    }
-    showLogin();
-  }`)
-  scripts = scripts.replace(/async function login\(\)\{[\s\S]*?\n  \}/, `async function login(){
-    loginMsg.textContent='در حال ورود...';
-    const xhr=new XMLHttpRequest();
-    xhr.open('POST','/api/login',true);
-    xhr.setRequestHeader('Content-Type','application/json');
-    xhr.timeout=12000;
-    xhr.onload=async function(){
-      try{
-        const out=JSON.parse(xhr.responseText||'{}');
-        if(xhr.status<200||xhr.status>=300){loginMsg.textContent=out.error||out.message||'خطا در ورود';return}
-        me=out.user;
-        localStorage.setItem('recruitment_os_session',JSON.stringify({access_token:out.access_token,refresh_token:out.refresh_token,user:out.user}));
-        sb=supabase.createClient(URL,KEY,{global:{headers:{Authorization:'Bearer '+out.access_token}}});
-        await ensureProfile();
-        showApp();
-      }catch(e){loginMsg.textContent='خطا در پردازش پاسخ سرور';}
-    };
-    xhr.onerror=function(){loginMsg.textContent='خطا در ارتباط با سرور';};
-    xhr.ontimeout=function(){loginMsg.textContent='ارتباط با سرور زمان‌بر شد؛ دوباره تلاش کن.';};
-    xhr.send(JSON.stringify({email:email.value.trim(),password:password.value}));
-  }`)
-  scripts = scripts.replace(/async function signup\(\)\{[\s\S]*?\n  \}/, `async function signup(){
-    loginMsg.textContent='در حال ساخت حساب...';
+export default function Home(){
+  const [email,setEmail]=useState('mahdi.jalali.sf@gmail.com')
+  const [password,setPassword]=useState('')
+  const [msg,setMsg]=useState('')
+  const [loading,setLoading]=useState(false)
+  const [user,setUser]=useState(null)
+  const [profile,setProfile]=useState(null)
+
+  useEffect(()=>{
     try{
-      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),12000);
-      const res=await fetch('/api/signup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({email:email.value.trim().toLowerCase(),password:password.value}),signal:controller.signal}); clearTimeout(timer);
-      const out=await res.json();
-      if(!res.ok){loginMsg.textContent=out.msg||out.error_description||out.message||'خطا در ساخت حساب';return}
-      if(out.access_token&&out.user){
-        me=out.user;
-        localStorage.setItem('recruitment_os_session',JSON.stringify({access_token:out.access_token,refresh_token:out.refresh_token,user:out.user}));
-        sb=supabase.createClient(URL,KEY,{global:{headers:{Authorization:'Bearer '+out.access_token}}});
-        await ensureProfile(); showApp(); return;
-      }
-      loginMsg.textContent='حساب ساخته شد. ایمیل تأیید را بررسی کن و سپس Login بزن.';
-    }catch(e){loginMsg.textContent=e.name==='AbortError'?'ارتباط با سرور زمان‌بر شد؛ دوباره تلاش کن.':'خطا در ساخت حساب';}
-  }`)
-  scripts = scripts.replace("async function logout(){await sb.auth.signOut();location.reload()}", "async function logout(){localStorage.removeItem('recruitment_os_session');location.reload()}")
-  return { props: { body, style, scripts } }
-}
+      const raw=localStorage.getItem('recruitment_os_session')
+      if(raw){const s=JSON.parse(raw); if(s?.user){setUser(s.user);setProfile({full_name:'Mahdi Jalali',role:'hr'})}}
+    }catch(e){}
+  },[])
 
-export default function Home({ body, style, scripts }) {
+  async function login(e){
+    e.preventDefault()
+    setLoading(true);setMsg('در حال ورود...')
+    try{
+      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),15000)
+      const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),password}),signal:controller.signal})
+      clearTimeout(timer)
+      const out=await res.json().catch(()=>({}))
+      if(!res.ok){setMsg(out.error||'خطا در ورود');setLoading(false);return}
+      localStorage.setItem('recruitment_os_session',JSON.stringify(out))
+      setUser(out.user)
+      setProfile({full_name:'Mahdi Jalali',role:'hr'})
+      setMsg('')
+    }catch(err){setMsg(err.name==='AbortError'?'ارتباط با سرور زمان‌بر شد.':'خطا در ارتباط با سرور')}
+    setLoading(false)
+  }
+
+  function logout(){localStorage.removeItem('recruitment_os_session');setUser(null);setProfile(null);setPassword('')}
+
   return <>
-    <Head><title>Recruitment OS</title><meta name="viewport" content="width=device-width,initial-scale=1" /><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></Head>
-    <style dangerouslySetInnerHTML={{__html: style}} />
-    <div dangerouslySetInnerHTML={{__html: body.replace(/<script>[\s\S]*?<\/script>/gi, '')}} />
-    <script dangerouslySetInnerHTML={{__html: scripts}} />
+    <Head><title>Recruitment OS</title><meta name="viewport" content="width=device-width,initial-scale=1" /></Head>
+    <style jsx global>{`*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font-family:Tahoma,Arial,sans-serif}header{height:62px;background:#101828;color:white;display:flex;align-items:center;justify-content:space-between;padding:0 18px}.brand{font-size:22px;font-weight:800}.wrap{min-height:calc(100vh - 62px);display:flex;align-items:flex-start;justify-content:center;padding-top:105px}.card{width:min(460px,92vw);background:white;border:1px solid #e4e7ec;border-radius:16px;padding:26px;box-shadow:0 8px 30px #00000008}h1{font-size:28px;margin:0 0 14px}p{color:#667085;line-height:1.8;font-size:13px}input{width:100%;height:45px;border:1px solid #d0d5dd;border-radius:9px;padding:0 12px;font-size:15px;margin:8px 0}button{border:0;border-radius:9px;padding:11px 17px;cursor:pointer;font-size:15px}.primary{background:#635bff;color:white}.secondary{background:#f2f4f7}.msg{margin-top:12px;color:#475467}.dashboard{width:min(1100px,94vw);background:white;border:1px solid #e4e7ec;border-radius:16px;padding:22px}.tabs{display:flex;gap:8px;margin:18px 0}.tab{background:#eef2ff;color:#3730a3}.status{display:inline-block;background:#dcfae6;color:#067647;padding:5px 9px;border-radius:999px;font-size:12px}`}</style>
+    <header><div className="brand">Recruitment OS</div>{user&&<button className="secondary" onClick={logout}>Logout</button>}</header>
+    <main className="wrap">
+      {!user?<form className="card" onSubmit={login} dir="rtl">
+        <h1>ورود به ATS</h1><p>با حساب HR وارد سیستم شو.</p>
+        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="Email" />
+        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} placeholder="Password" />
+        <div style={{display:'flex',gap:8,marginTop:12}}><button className="primary" type="submit" disabled={loading}>{loading?'در حال ورود...':'Login'}</button></div>
+        {msg&&<div className="msg">{msg}</div>}
+      </form>:
+      <section className="dashboard" dir="rtl">
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}><div><h1 style={{marginBottom:4}}>Recruitment OS</h1><p style={{margin:0}}>خوش آمدی، {profile?.full_name||user.email}</p></div><span className="status">HR</span></div>
+        <div className="tabs"><button className="tab">Hiring Requests</button><button className="tab">Jobs</button><button className="tab">Automations / Settings</button></div>
+        <div style={{background:'#f8fafc',border:'1px solid #e4e7ec',borderRadius:12,padding:18}}><b>ورود با موفقیت انجام شد.</b><p>در مرحله بعد برد جذب، Hiring Request، Candidate Screening و Stage Actions را روی همین نسخه Native Next.js منتقل می‌کنیم.</p></div>
+      </section>}
+    </main>
   </>
 }
