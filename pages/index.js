@@ -6,7 +6,8 @@ export async function getStaticProps() {
   const html = fs.readFileSync(path.join(process.cwd(), 'index.html'), 'utf8')
   const body = html.match(/<body>([\s\S]*?)<\/body>/i)?.[1] || html
   const style = html.match(/<style>([\s\S]*?)<\/style>/i)?.[1] || ''
-  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/gi)].map(m => m[1]).join('\n')
+  let scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/gi)].map(m => m[1]).join('\n')
+  scripts = scripts.replace("const URL='https://wpjixgfnynrboptwpotd.supabase.co'", "const URL=window.location.origin+'/supabase'")
   return { props: { body, style, scripts } }
 }
 
