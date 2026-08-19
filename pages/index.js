@@ -1,57 +1,13 @@
 import Head from 'next/head'
-import { useEffect, useState } from 'react'
-
-export default function Home(){
-  const [email,setEmail]=useState('mahdi.jalali.sf@gmail.com')
-  const [password,setPassword]=useState('')
-  const [msg,setMsg]=useState('')
-  const [loading,setLoading]=useState(false)
-  const [user,setUser]=useState(null)
-  const [profile,setProfile]=useState(null)
-
-  useEffect(()=>{
-    try{
-      const raw=localStorage.getItem('recruitment_os_session')
-      if(raw){const s=JSON.parse(raw); if(s?.user){setUser(s.user);setProfile({full_name:'Mahdi Jalali',role:'hr'})}}
-    }catch(e){}
-  },[])
-
-  async function login(e){
-    e.preventDefault()
-    setLoading(true);setMsg('در حال ورود...')
-    try{
-      const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),15000)
-      const res=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.trim(),password}),signal:controller.signal})
-      clearTimeout(timer)
-      const out=await res.json().catch(()=>({}))
-      if(!res.ok){setMsg(out.error||'خطا در ورود');setLoading(false);return}
-      localStorage.setItem('recruitment_os_session',JSON.stringify(out))
-      setUser(out.user)
-      setProfile({full_name:'Mahdi Jalali',role:'hr'})
-      setMsg('')
-    }catch(err){setMsg(err.name==='AbortError'?'ارتباط با سرور زمان‌بر شد.':'خطا در ارتباط با سرور')}
-    setLoading(false)
-  }
-
-  function logout(){localStorage.removeItem('recruitment_os_session');setUser(null);setProfile(null);setPassword('')}
-
-  return <>
-    <Head><title>Recruitment OS</title><meta name="viewport" content="width=device-width,initial-scale=1" /></Head>
-    <style jsx global>{`*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font-family:Tahoma,Arial,sans-serif}header{height:62px;background:#101828;color:white;display:flex;align-items:center;justify-content:space-between;padding:0 18px}.brand{font-size:22px;font-weight:800}.wrap{min-height:calc(100vh - 62px);display:flex;align-items:flex-start;justify-content:center;padding-top:105px}.card{width:min(460px,92vw);background:white;border:1px solid #e4e7ec;border-radius:16px;padding:26px;box-shadow:0 8px 30px #00000008}h1{font-size:28px;margin:0 0 14px}p{color:#667085;line-height:1.8;font-size:13px}input{width:100%;height:45px;border:1px solid #d0d5dd;border-radius:9px;padding:0 12px;font-size:15px;margin:8px 0}button{border:0;border-radius:9px;padding:11px 17px;cursor:pointer;font-size:15px}.primary{background:#635bff;color:white}.secondary{background:#f2f4f7}.msg{margin-top:12px;color:#475467}.dashboard{width:min(1100px,94vw);background:white;border:1px solid #e4e7ec;border-radius:16px;padding:22px}.tabs{display:flex;gap:8px;margin:18px 0}.tab{background:#eef2ff;color:#3730a3}.status{display:inline-block;background:#dcfae6;color:#067647;padding:5px 9px;border-radius:999px;font-size:12px}`}</style>
-    <header><div className="brand">Recruitment OS</div>{user&&<button className="secondary" onClick={logout}>Logout</button>}</header>
-    <main className="wrap">
-      {!user?<form className="card" onSubmit={login} dir="rtl">
-        <h1>ورود به ATS</h1><p>با حساب HR وارد سیستم شو.</p>
-        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="Email" />
-        <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} placeholder="Password" />
-        <div style={{display:'flex',gap:8,marginTop:12}}><button className="primary" type="submit" disabled={loading}>{loading?'در حال ورود...':'Login'}</button></div>
-        {msg&&<div className="msg">{msg}</div>}
-      </form>:
-      <section className="dashboard" dir="rtl">
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}><div><h1 style={{marginBottom:4}}>Recruitment OS</h1><p style={{margin:0}}>خوش آمدی، {profile?.full_name||user.email}</p></div><span className="status">HR</span></div>
-        <div className="tabs"><button className="tab">Hiring Requests</button><button className="tab">Jobs</button><button className="tab">Automations / Settings</button></div>
-        <div style={{background:'#f8fafc',border:'1px solid #e4e7ec',borderRadius:12,padding:18}}><b>ورود با موفقیت انجام شد.</b><p>در مرحله بعد برد جذب، Hiring Request، Candidate Screening و Stage Actions را روی همین نسخه Native Next.js منتقل می‌کنیم.</p></div>
-      </section>}
-    </main>
-  </>
-}
+import {useEffect,useState} from 'react'
+const STAGES=['Sourcing','CV Review','HR Call','HR Interview','Technical Interview','Offer','Hired','Rejected','On Hold','Talent Pool']
+const seed=[{id:1,title:'Senior Backend Engineer',department:'Technology',manager:'CTO',hc:2,status:'approved',jd:'Senior backend engineer with Node.js, PostgreSQL, APIs and scalable systems.',candidates:[{id:1,name:'Ali Ahmadi',score:88,stage:'CV Review',why:'Strong Node.js, PostgreSQL and API experience'},{id:2,name:'Sara Mohammadi',score:74,stage:'Sourcing',why:'Good backend experience; scalability evidence is limited'}]}]
+export default function Home(){const [user,setUser]=useState(null),[email,setEmail]=useState('mahdi.jalali.sf@gmail.com'),[password,setPassword]=useState(''),[msg,setMsg]=useState(''),[loading,setLoading]=useState(false),[tab,setTab]=useState('requests'),[jobs,setJobs]=useState(seed),[reqs,setReqs]=useState([{id:1,title:'Product Designer',department:'Product',manager:'Head of Product',hc:1,status:'pending',jd:'Product designer with Figma, research and design systems.'}]),[openJob,setOpenJob]=useState(null),[showReq,setShowReq]=useState(false),[form,setForm]=useState({title:'',department:'',manager:'',hc:1,jd:'',must:''})
+useEffect(()=>{try{const s=JSON.parse(localStorage.getItem('recruitment_os_session'));if(s?.user)setUser(s.user)}catch{}},[])
+async function login(e){e.preventDefault();setLoading(true);setMsg('');try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});const o=await r.json();if(!r.ok)throw new Error(o.error||'Login failed');localStorage.setItem('recruitment_os_session',JSON.stringify(o));setUser(o.user)}catch(e){setMsg(e.message)}setLoading(false)}
+function logout(){localStorage.removeItem('recruitment_os_session');setUser(null)}
+function submitReq(){if(!form.title||!form.department||!form.jd)return alert('Job Title، Department و Job Description را کامل کن.');setReqs(x=>[{...form,id:Date.now(),status:'pending'},...x]);setShowReq(false);setForm({title:'',department:'',manager:'',hc:1,jd:'',must:''})}
+function approve(r){setReqs(x=>x.map(a=>a.id===r.id?{...a,status:'approved'}:a));setJobs(x=>[{...r,id:Date.now(),status:'open',candidates:[]},...x])}
+function move(jobId,cid,stage){setJobs(js=>js.map(j=>j.id!==jobId?j:{...j,candidates:j.candidates.map(c=>c.id===cid?{...c,stage}:c)}))}
+const job=jobs.find(j=>j.id===openJob)
+return <><Head><title>Recruitment OS</title></Head><style jsx global>{`*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#172033;font-family:Tahoma,Arial,sans-serif}button,input,textarea{font:inherit}button{border:0;border-radius:9px;padding:10px 14px;cursor:pointer}.p{background:#635bff;color:#fff}.soft{background:#eef2ff;color:#3730a3}.ok{background:#dcfae6;color:#067647}.bad{background:#fee4e2;color:#b42318}header{height:64px;background:#101828;color:#fff;padding:0 22px;display:flex;align-items:center;justify-content:space-between}.brand{font-size:21px;font-weight:900}.page{max-width:1250px;margin:25px auto;padding:0 16px}.panel{background:#fff;border:1px solid #e4e7ec;border-radius:16px;padding:18px}.tabs{display:flex;gap:8px;margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.card{border:1px solid #e4e7ec;border-radius:13px;padding:14px;background:#fff}.muted{color:#667085;font-size:13px;line-height:1.7}.row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.badge{display:inline-block;background:#f2f4f7;padding:5px 8px;border-radius:20px;font-size:11px}.board{display:flex;gap:10px;overflow:auto;padding-bottom:12px}.col{min-width:250px;width:250px;background:#eef1f6;border-radius:12px;padding:10px;min-height:420px}.candidate{background:#fff;border:1px solid #e4e7ec;border-radius:10px;padding:10px;margin-top:9px}.score{font-size:20px;font-weight:900;color:#067647}.modal{position:fixed;inset:0;background:#0008;display:flex;align-items:center;justify-content:center;padding:15px}.box{width:min(700px,100%);background:#fff;border-radius:16px;padding:20px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fields textarea{grid-column:1/-1;min-height:100px}.fields input,.fields textarea{width:100%;padding:10px;border:1px solid #d0d5dd;border-radius:8px}.login{width:min(430px,92vw);margin:100px auto}.login input{width:100%;padding:12px;margin:6px 0;border:1px solid #d0d5dd;border-radius:8px}@media(max-width:650px){.fields{grid-template-columns:1fr}.fields textarea{grid-column:auto}}`}</style><header><div className="brand">Recruitment OS</div>{user&&<button onClick={logout}>Logout</button>}</header>{!user?<form className="panel login" dir="rtl" onSubmit={login}><h2>ورود به ATS</h2><p className="muted">Recruitment OS MVP</p><input type="email" value={email} onChange={e=>setEmail(e.target.value)}/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Password"/><button className="p" disabled={loading}>{loading?'در حال ورود...':'Login'}</button>{msg&&<p className="bad">{msg}</p>}</form>:<main className="page" dir="rtl"><section className="panel">{openJob&&job?<><div className="row"><div><button onClick={()=>setOpenJob(null)}>← Jobs</button><h2>{job.title}</h2><p className="muted">{job.department} · HC {job.hc}</p></div><div><span className="badge">Job Description connected</span></div></div><div className="board">{STAGES.map(s=><div className="col" key={s}><b>{s}</b>{job.candidates.filter(c=>c.stage===s).map(c=><div className="candidate" key={c.id}><div className="row"><b>{c.name}</b><span className="score">{c.score}</span></div><p className="muted">AI Match: {c.why}</p><select value={c.stage} onChange={e=>move(job.id,c.id,e.target.value)} style={{width:'100%',padding:7}}>{STAGES.map(x=><option key={x}>{x}</option>)}</select>{s==='CV Review'&&<div style={{marginTop:8}}><button className="ok">HR Approve</button> <button className="bad">Reject</button></div>}</div>)}</div>)}</div></>:<><div className="tabs"><button className={tab==='requests'?'p':'soft'} onClick={()=>setTab('requests')}>Hiring Requests</button><button className={tab==='jobs'?'p':'soft'} onClick={()=>setTab('jobs')}>Jobs</button><button className={tab==='auto'?'p':'soft'} onClick={()=>setTab('auto')}>Automations / Settings</button></div>{tab==='requests'&&<><div className="row"><div><h2>Hiring Requests</h2><p className="muted">Manager submits → HR approves → Job is created.</p></div><button className="p" onClick={()=>setShowReq(true)}>+ New Request</button></div><div className="grid">{reqs.map(r=><div className="card" key={r.id}><b>{r.title}</b><p className="muted">{r.department} · {r.manager||'Hiring Manager'} · HC {r.hc}</p><span className="badge">{r.status}</span><p className="muted">{r.jd}</p>{r.status==='pending'&&<div><button className="ok" onClick={()=>approve(r)}>HR Approve</button> <button className="bad" onClick={()=>setReqs(x=>x.map(a=>a.id===r.id?{...a,status:'rejected'}:a))}>Reject</button></div>}</div>)}</div></>}{tab==='jobs'&&<><h2>Jobs</h2><p className="muted">روی هر Job بزن تا برد اختصاصی همان موقعیت باز شود.</p><div className="grid">{jobs.map(j=><div className="card" key={j.id} onClick={()=>setOpenJob(j.id)} style={{cursor:'pointer'}}><b>{j.title}</b><p className="muted">{j.department} · HC {j.hc}</p><span className="badge">{j.candidates.length} Candidates</span></div>)}</div></>}{tab==='auto'&&<><h2>Stage Actions</h2><p className="muted">MVP Preview — اتصال واقعی Email/SMS را بعد از تثبیت Flow انجام می‌دهیم.</p><div className="grid"><div className="card"><b>HR Call</b><p className="muted">Email candidate · HR approval required</p></div><div className="card"><b>Technical Interview</b><p className="muted">Email interview invitation · HR approval required</p></div><div className="card"><b>Rejected</b><p className="muted">Email/SMS rejection template · HR approval required</p></div></div></>}</>}</section></main>}{showReq&&<div className="modal" dir="rtl"><div className="box"><div className="row"><h2>New Hiring Request</h2><button onClick={()=>setShowReq(false)}>×</button></div><div className="fields"><input placeholder="Job Title *" value={form.title} onChange={e=>setForm({...form,title:e.target.value})}/><input placeholder="Department *" value={form.department} onChange={e=>setForm({...form,department:e.target.value})}/><input placeholder="Hiring Manager" value={form.manager} onChange={e=>setForm({...form,manager:e.target.value})}/><input type="number" min="1" placeholder="Headcount" value={form.hc} onChange={e=>setForm({...form,hc:e.target.value})}/><textarea placeholder="Job Description *" value={form.jd} onChange={e=>setForm({...form,jd:e.target.value})}/><textarea placeholder="Must-have skills" value={form.must} onChange={e=>setForm({...form,must:e.target.value})}/></div><div style={{marginTop:12}}><button className="p" onClick={submitReq}>Submit Request</button></div></div></div>}</>
