@@ -1,100 +1,32 @@
 const URL='https://wpjixgfnynrboptwpotd.supabase.co';
 const KEY='sb_publishable_IwnnE09a7GnBzIHG-Z4ssQ_gTJTqLfg';
 const stageDb={Sourcing:'sourcing','CV Review':'cv_review','HR Call':'hr_call','HR Interview':'hr_interview','Technical Interview':'technical_interview',Offer:'offer',Hired:'hired',Rejected:'rejected','On Hold':'on_hold','Talent Pool':'talent_pool'};
-
-function extractContact(text=''){
- const normalized=text.replace(/[\u200c\u200f\u202a-\u202e]/g,' ');
- const email=(normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)||[])[0]||'';
- const phones=normalized.match(/(?:\+?98|0098|0)?[\s\-()]?9\d{2}[\s\-()]?\d{3}[\s\-()]?\d{4}/g)||[];
- let phone=(phones[0]||'').replace(/[^\d+]/g,'');
- if(phone.startsWith('0098'))phone='+98'+phone.slice(4);else if(phone.startsWith('98')&&!phone.startsWith('+'))phone='+'+phone;else if(/^9\d{9}$/.test(phone))phone='0'+phone;
- return{email,phone}
-}
-async function refresh(refreshToken){
- if(!refreshToken)return null;
- const r=await fetch(`${URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});
- const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.msg||d?.error_description||d?.message||'Session expired');return d
-}
+function extractContact(text=''){const normalized=text.replace(/[\u200c\u200f\u202a-\u202e]/g,' ');const email=(normalized.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)||[])[0]||'';const phones=normalized.match(/(?:\+?98|0098|0)?[\s\-()]?9\d{2}[\s\-()]?\d{3}[\s\-()]?\d{4}/g)||[];let phone=(phones[0]||'').replace(/[^\d+]/g,'');if(phone.startsWith('0098'))phone='+98'+phone.slice(4);else if(phone.startsWith('98')&&!phone.startsWith('+'))phone='+'+phone;else if(/^9\d{9}$/.test(phone))phone='0'+phone;return{email,phone}}
+async function refresh(refreshToken){if(!refreshToken)return null;const r=await fetch(`${URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.msg||d?.error_description||d?.message||'Session expired');return d}
 function expired(token){try{const p=JSON.parse(Buffer.from((token||'').split('.')[1]||'','base64url').toString());return !p.exp||p.exp*1000<Date.now()+15000}catch{return true}}
-async function raw(path,{method='GET',token,body,prefer}={}){
- const r=await fetch(`${URL}/rest/v1/${path}`,{method,headers:{apikey:KEY,Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(prefer?{Prefer:prefer}:{})},body:body?JSON.stringify(body):undefined});
- const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}return{r,data}
-}
+async function raw(path,{method='GET',token,body,prefer}={}){const r=await fetch(`${URL}/rest/v1/${path}`,{method,headers:{apikey:KEY,Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(prefer?{Prefer:prefer}:{})},body:body?JSON.stringify(body):undefined});const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch{data=text}return{r,data}}
 async function ensureFresh(ctx){if((!ctx.token||expired(ctx.token))&&ctx.refreshToken){const fresh=await refresh(ctx.refreshToken);ctx.token=fresh.access_token;ctx.refreshToken=fresh.refresh_token||ctx.refreshToken;ctx.user=fresh.user||ctx.user;ctx.refreshed={access_token:ctx.token,refresh_token:ctx.refreshToken,user:ctx.user}}}
-async function sb(path,opts,ctx){
- await ensureFresh(ctx);let out=await raw(path,{...opts,token:ctx.token});
- if(out.r.status===401&&ctx.refreshToken){const fresh=await refresh(ctx.refreshToken);ctx.token=fresh.access_token;ctx.refreshToken=fresh.refresh_token||ctx.refreshToken;ctx.user=fresh.user||ctx.user;ctx.refreshed={access_token:ctx.token,refresh_token:ctx.refreshToken,user:ctx.user};out=await raw(path,{...opts,token:ctx.token})}
- if(!out.r.ok)throw new Error(out.data?.message||out.data?.hint||out.data?.details||out.data?.error||`Database error ${out.r.status}`);return out.data
-}
+async function sb(path,opts,ctx){await ensureFresh(ctx);let out=await raw(path,{...opts,token:ctx.token});if(out.r.status===401&&ctx.refreshToken){const fresh=await refresh(ctx.refreshToken);ctx.token=fresh.access_token;ctx.refreshToken=fresh.refresh_token||ctx.refreshToken;ctx.user=fresh.user||ctx.user;ctx.refreshed={access_token:ctx.token,refresh_token:ctx.refreshToken,user:ctx.user};out=await raw(path,{...opts,token:ctx.token})}if(!out.r.ok)throw new Error(out.data?.message||out.data?.hint||out.data?.details||out.data?.error||`Database error ${out.r.status}`);return out.data}
 async function activity(ctx,orgId,candidateId,userId,action,text,metadata={}){return sb('activities',{method:'POST',body:{organization_id:orgId,candidate_id:candidateId,actor_id:userId,action,metadata:{text,...metadata}}},ctx)}
 function needOrg(req){const orgId=req.body?.orgId;if(!orgId)throw new Error('Company is required');return orgId}
+async function roleFor(ctx,orgId,userId){const rows=await sb(`organization_members?organization_id=eq.${encodeURIComponent(orgId)}&user_id=eq.${encodeURIComponent(userId)}&is_active=eq.true&select=role`,{},ctx);return rows?.[0]?.role||null}
+async function requireRole(ctx,orgId,userId,allowed){const role=await roleFor(ctx,orgId,userId);if(!role||!allowed.includes(role)){const e=new Error('You do not have permission for this action');e.status=403;throw e}return role}
 
-export default async function handler(req,res){
- const token=(req.headers.authorization||'').replace(/^Bearer\s+/i,'');const refreshToken=req.headers['x-refresh-token']||req.body?.refreshToken||'';
- if(!token&&!refreshToken)return res.status(401).json({error:'Missing session token',code:'AUTH_REQUIRED'});
- const ctx={token,refreshToken,user:null,refreshed:null};const{op}=req.body||{};
- try{
-  await ensureFresh(ctx);let result;
-  if(op==='bootstrap'){
-   const [organizations,memberships]=await Promise.all([
-    sb('organizations?select=*&order=created_at.asc',{},ctx),
-    sb(`organization_members?select=organization_id,role,is_active&user_id=eq.${encodeURIComponent(req.body.userId)}&order=created_at.asc`,{},ctx)
-   ]);
-   result={organizations,memberships};
-  }
-  else if(op==='load'){
-   const orgId=needOrg(req),q=`organization_id=eq.${encodeURIComponent(orgId)}`;
-   const[requests,jobs,candidates,activities,comments,communications]=await Promise.all([
-    sb(`hiring_requests?select=*&${q}&order=created_at.desc`,{},ctx),sb(`jobs?select=*&${q}&order=created_at.desc`,{},ctx),sb(`candidates?select=*&${q}&order=created_at.desc`,{},ctx),sb(`activities?select=*&${q}&order=created_at.desc`,{},ctx),sb(`candidate_comments?select=*&${q}&order=created_at.desc`,{},ctx),sb(`candidate_communications?select=*&${q}&order=created_at.desc`,{},ctx)
-   ]);result={requests,jobs,candidates,activities,comments,communications};
-  }
-  else if(op==='create_organization'){
-   const name=(req.body.name||'').trim();if(!name)throw new Error('Company name is required');
-   const rows=await sb('rpc/create_organization',{method:'POST',body:{org_name:name}},ctx);result={organization_id:rows};
-  }
-  else if(op==='rename_organization'){
-   const orgId=needOrg(req),name=(req.body.name||'').trim();if(!name)throw new Error('Company name is required');
-   const rows=await sb(`organizations?id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{name}},ctx);result={organization:rows?.[0]};
-  }
-  else if(op==='list_members'){
-   const orgId=needOrg(req);const members=await sb('rpc/org_member_directory',{method:'POST',body:{org:orgId}},ctx);result={members};
-  }
-  else if(op==='add_member'){
-   const orgId=needOrg(req),email=(req.body.email||'').trim(),role=req.body.role||'viewer';if(!email)throw new Error('Email is required');
-   const userId=await sb('rpc/admin_add_member_by_email',{method:'POST',body:{org:orgId,member_email:email,member_role:role}},ctx);result={user_id:userId};
-  }
-  else if(op==='update_member'){
-   const orgId=needOrg(req);await sb('rpc/admin_update_member',{method:'POST',body:{org:orgId,member_user:req.body.memberUser,member_role:req.body.role,member_active:!!req.body.isActive}},ctx);result={ok:true};
-  }
-  else if(op==='create_request'){
-   const orgId=needOrg(req),f=req.body.form||{};const rows=await sb('hiring_requests',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,created_by:req.body.userId,title:f.title,department:f.department,hiring_manager_name:f.manager||null,openings:Number(f.hc)||1,reason:'Growth / Replacement',business_justification:'Submitted via Recruitment OS',job_description:f.jd,responsibilities:f.jd,must_have:f.must||f.jd,seniority:'Not specified'}},ctx);result={request:rows?.[0]};
-  }
-  else if(op==='approve_request'){
-   const orgId=needOrg(req),id=req.body.id,userId=req.body.userId;const rows=await sb(`hiring_requests?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{status:'approved',approved_by:userId,approved_at:new Date().toISOString()}},ctx);const r=rows?.[0];if(!r)throw new Error('Request not found');
-   const js=await sb('jobs',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,hiring_request_id:r.id,title:r.title,department:r.department,hiring_manager_name:r.hiring_manager_name,openings:r.openings,employment_type:r.employment_type,work_model:r.work_model,priority:r.priority,target_hiring_date:r.target_hiring_date,job_description:r.job_description,responsibilities:r.responsibilities,must_have:r.must_have,nice_to_have:r.nice_to_have,seniority:r.seniority,minimum_experience:r.minimum_experience,education_requirement:r.education_requirement,salary_from:r.salary_from,salary_to:r.salary_to,status:'open'}},ctx);result={request:r,job:js?.[0]};
-  }
-  else if(op==='reject_request'){
-   const orgId=needOrg(req);const rows=await sb(`hiring_requests?id=eq.${encodeURIComponent(req.body.id)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{status:'rejected',approved_by:req.body.userId,approved_at:new Date().toISOString()}},ctx);result={request:rows?.[0]};
-  }
-  else if(op==='create_candidate'){
-   const orgId=needOrg(req),c=req.body.candidate||{},auto=extractContact(c.resumeText||'');const rows=await sb('candidates',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,job_id:req.body.jobId,full_name:c.name,email:c.email||auto.email||null,phone:c.phone||auto.phone||null,stage:'cv_review',hr_approval:'pending',resume_text:c.resumeText||null,resume_file_name:c.fileName||null,screening_score:c.score,screening_summary:c.why,created_by:req.body.userId}},ctx);const row=rows?.[0];if(row)await Promise.all([activity(ctx,orgId,row.id,req.body.userId,'resume_screened',`Resume uploaded and screened — score ${c.score}`),activity(ctx,orgId,row.id,req.body.userId,'stage_changed','Added to CV Review',{to:'cv_review'})]);result={candidate:row,contact:{email:row?.email||auto.email||'',phone:row?.phone||auto.phone||''}};
-  }
-  else if(op==='move_candidate'){
-   const orgId=needOrg(req),stage=stageDb[req.body.stage]||req.body.stage;const rows=await sb(`candidates?id=eq.${encodeURIComponent(req.body.candidateId)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{stage}},ctx);await activity(ctx,orgId,req.body.candidateId,req.body.userId,'stage_changed',`Stage changed to ${req.body.stage}`,{to:stage});result={candidate:rows?.[0]};
-  }
-  else if(op==='hr_decision'){
-   const orgId=needOrg(req),approved=!!req.body.approved,stage=approved?'hr_call':'rejected',approval=approved?'approved':'rejected';const rows=await sb(`candidates?id=eq.${encodeURIComponent(req.body.candidateId)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{stage,hr_approval:approval}},ctx);await activity(ctx,orgId,req.body.candidateId,req.body.userId,'hr_decision',approved?'HR approved candidate → HR Call':'HR rejected candidate',{approved});result={candidate:rows?.[0]};
-  }
-  else if(op==='add_comment'){
-   const orgId=needOrg(req);const rows=await sb('candidate_comments',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,candidate_id:req.body.candidateId,author_id:req.body.userId,body:req.body.body}},ctx);await activity(ctx,orgId,req.body.candidateId,req.body.userId,'comment_added','New team comment added');result={comment:rows?.[0]};
-  }
-  else if(op==='create_communication'){
-   const orgId=needOrg(req),c=req.body.communication||{};if(!['email','sms','call','interview','feedback','offer'].includes(c.channel))throw new Error('Invalid communication channel');const logged=['call','feedback'].includes(c.channel);const rows=await sb('candidate_communications',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,candidate_id:req.body.candidateId,channel:c.channel,status:logged?'logged':'draft',recipient:c.recipient||null,subject:c.subject||null,body:c.body||null,metadata:c.metadata||{},created_by:req.body.userId}},ctx);const row=rows?.[0];await activity(ctx,orgId,req.body.candidateId,req.body.userId,'communication_created',`${c.channel.toUpperCase()} ${logged?'logged':'draft created'}`,{communication_id:row?.id,channel:c.channel});result={communication:row};
-  }
-  else if(op==='approve_communication'){
-   const orgId=needOrg(req),id=req.body.id;const existing=await sb(`candidate_communications?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(orgId)}&select=*`,{},ctx);const item=existing?.[0];if(!item)throw new Error('Communication not found');const now=new Date().toISOString();const rows=await sb(`candidate_communications?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{status:'queued',approved_by:req.body.userId,approved_at:now}},ctx);await activity(ctx,orgId,item.candidate_id,req.body.userId,'communication_approved',`${item.channel.toUpperCase()} approved and queued`,{communication_id:id,channel:item.channel});result={communication:rows?.[0],provider_connected:false};
-  }
-  else return res.status(400).json({error:'Unknown operation'});
-  return res.json({...result,...(ctx.refreshed?{session:ctx.refreshed}:{})});
- }catch(e){const m=e.message||'Database operation failed';const auth=/jwt|session|token|expired|refresh/i.test(m);return res.status(auth?401:500).json({error:m,code:auth?'SESSION_EXPIRED':'DATA_ERROR'})}
-}
+export default async function handler(req,res){const token=(req.headers.authorization||'').replace(/^Bearer\s+/i,'');const refreshToken=req.headers['x-refresh-token']||req.body?.refreshToken||'';if(!token&&!refreshToken)return res.status(401).json({error:'Missing session token',code:'AUTH_REQUIRED'});const ctx={token,refreshToken,user:null,refreshed:null};const{op}=req.body||{};try{await ensureFresh(ctx);const userId=req.body.userId;let result;
+if(op==='bootstrap'){const [organizations,memberships]=await Promise.all([sb('organizations?select=*&order=created_at.asc',{},ctx),sb(`organization_members?select=organization_id,role,is_active&user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc`,{},ctx)]);result={organizations,memberships}}
+else if(op==='load'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr','hiring_manager','interviewer','viewer']);const q=`organization_id=eq.${encodeURIComponent(orgId)}`;const[requests,jobs,candidates,activities,comments,communications]=await Promise.all([sb(`hiring_requests?select=*&${q}&order=created_at.desc`,{},ctx),sb(`jobs?select=*&${q}&order=created_at.desc`,{},ctx),sb(`candidates?select=*&${q}&order=created_at.desc`,{},ctx),sb(`activities?select=*&${q}&order=created_at.desc`,{},ctx),sb(`candidate_comments?select=*&${q}&order=created_at.desc`,{},ctx),sb(`candidate_communications?select=*&${q}&order=created_at.desc`,{},ctx)]);result={requests,jobs,candidates,activities,comments,communications}}
+else if(op==='create_organization'){const name=(req.body.name||'').trim();if(!name)throw new Error('Company name is required');const rows=await sb('rpc/create_organization',{method:'POST',body:{org_name:name}},ctx);result={organization_id:rows}}
+else if(op==='rename_organization'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin']);const name=(req.body.name||'').trim();if(!name)throw new Error('Company name is required');const rows=await sb(`organizations?id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{name}},ctx);result={organization:rows?.[0]}}
+else if(op==='list_members'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin']);const members=await sb('rpc/org_member_directory',{method:'POST',body:{org:orgId}},ctx);result={members}}
+else if(op==='add_member'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin']);const email=(req.body.email||'').trim(),role=req.body.role||'viewer';if(!email)throw new Error('Email is required');const memberId=await sb('rpc/admin_add_member_by_email',{method:'POST',body:{org:orgId,member_email:email,member_role:role}},ctx);result={user_id:memberId}}
+else if(op==='update_member'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin']);await sb('rpc/admin_update_member',{method:'POST',body:{org:orgId,member_user:req.body.memberUser,member_role:req.body.role,member_active:!!req.body.isActive}},ctx);result={ok:true}}
+else if(op==='create_request'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr','hiring_manager']);const f=req.body.form||{};const rows=await sb('hiring_requests',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,created_by:userId,title:f.title,department:f.department,hiring_manager_name:f.manager||null,openings:Number(f.hc)||1,reason:'Growth / Replacement',business_justification:'Submitted via Recruitment OS',job_description:f.jd,responsibilities:f.jd,must_have:f.must||f.jd,seniority:'Not specified'}},ctx);result={request:rows?.[0]}}
+else if(op==='approve_request'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr']);const id=req.body.id;const rows=await sb(`hiring_requests?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{status:'approved',approved_by:userId,approved_at:new Date().toISOString()}},ctx);const r=rows?.[0];if(!r)throw new Error('Request not found');const js=await sb('jobs',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,hiring_request_id:r.id,title:r.title,department:r.department,hiring_manager_name:r.hiring_manager_name,openings:r.openings,employment_type:r.employment_type,work_model:r.work_model,priority:r.priority,target_hiring_date:r.target_hiring_date,job_description:r.job_description,responsibilities:r.responsibilities,must_have:r.must_have,nice_to_have:r.nice_to_have,seniority:r.seniority,minimum_experience:r.minimum_experience,education_requirement:r.education_requirement,salary_from:r.salary_from,salary_to:r.salary_to,status:'open'}},ctx);result={request:r,job:js?.[0]}}
+else if(op==='reject_request'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr']);const rows=await sb(`hiring_requests?id=eq.${encodeURIComponent(req.body.id)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{status:'rejected',approved_by:userId,approved_at:new Date().toISOString()}},ctx);result={request:rows?.[0]}}
+else if(op==='create_candidate'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr']);const c=req.body.candidate||{},auto=extractContact(c.resumeText||'');const rows=await sb('candidates',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,job_id:req.body.jobId,full_name:c.name,email:c.email||auto.email||null,phone:c.phone||auto.phone||null,stage:'cv_review',hr_approval:'pending',resume_text:c.resumeText||null,resume_file_name:c.fileName||null,screening_score:c.score,screening_summary:c.why,created_by:userId}},ctx);const row=rows?.[0];if(row)await Promise.all([activity(ctx,orgId,row.id,userId,'resume_screened',`Resume uploaded and screened — score ${c.score}`),activity(ctx,orgId,row.id,userId,'stage_changed','Added to CV Review',{to:'cv_review'})]);result={candidate:row,contact:{email:row?.email||auto.email||'',phone:row?.phone||auto.phone||''}}}
+else if(op==='move_candidate'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr']);const stage=stageDb[req.body.stage]||req.body.stage;const rows=await sb(`candidates?id=eq.${encodeURIComponent(req.body.candidateId)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{stage}},ctx);await activity(ctx,orgId,req.body.candidateId,userId,'stage_changed',`Stage changed to ${req.body.stage}`,{to:stage});result={candidate:rows?.[0]}}
+else if(op==='hr_decision'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr']);const approved=!!req.body.approved,stage=approved?'hr_call':'rejected',approval=approved?'approved':'rejected';const rows=await sb(`candidates?id=eq.${encodeURIComponent(req.body.candidateId)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{stage,hr_approval:approval}},ctx);await activity(ctx,orgId,req.body.candidateId,userId,'hr_decision',approved?'HR approved candidate → HR Call':'HR rejected candidate',{approved});result={candidate:rows?.[0]}}
+else if(op==='add_comment'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr','hiring_manager','interviewer']);const rows=await sb('candidate_comments',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,candidate_id:req.body.candidateId,author_id:userId,body:req.body.body}},ctx);await activity(ctx,orgId,req.body.candidateId,userId,'comment_added','New team comment added');result={comment:rows?.[0]}}
+else if(op==='create_communication'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr']);const c=req.body.communication||{};if(!['email','sms','call','interview','feedback','offer'].includes(c.channel))throw new Error('Invalid communication channel');const logged=['call','feedback'].includes(c.channel);const rows=await sb('candidate_communications',{method:'POST',prefer:'return=representation',body:{organization_id:orgId,candidate_id:req.body.candidateId,channel:c.channel,status:logged?'logged':'draft',recipient:c.recipient||null,subject:c.subject||null,body:c.body||null,metadata:c.metadata||{},created_by:userId}},ctx);const row=rows?.[0];await activity(ctx,orgId,req.body.candidateId,userId,'communication_created',`${c.channel.toUpperCase()} ${logged?'logged':'draft created'}`,{communication_id:row?.id,channel:c.channel});result={communication:row}}
+else if(op==='approve_communication'){const orgId=needOrg(req);await requireRole(ctx,orgId,userId,['hr_admin','hr']);const id=req.body.id;const existing=await sb(`candidate_communications?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(orgId)}&select=*`,{},ctx);const item=existing?.[0];if(!item)throw new Error('Communication not found');const rows=await sb(`candidate_communications?id=eq.${encodeURIComponent(id)}&organization_id=eq.${encodeURIComponent(orgId)}`,{method:'PATCH',prefer:'return=representation',body:{status:'queued',approved_by:userId,approved_at:new Date().toISOString()}},ctx);await activity(ctx,orgId,item.candidate_id,userId,'communication_approved',`${item.channel.toUpperCase()} approved and queued`,{communication_id:id,channel:item.channel});result={communication:rows?.[0],provider_connected:false}}
+else return res.status(400).json({error:'Unknown operation'});return res.json({...result,...(ctx.refreshed?{session:ctx.refreshed}:{})})}catch(e){const m=e.message||'Database operation failed';const auth=/jwt|session|token|expired|refresh/i.test(m);return res.status(e.status|| (auth?401:500)).json({error:m,code:auth?'SESSION_EXPIRED':e.status===403?'FORBIDDEN':'DATA_ERROR'})}}
