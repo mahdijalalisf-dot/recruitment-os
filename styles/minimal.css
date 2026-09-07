@@ -1,0 +1,44 @@
+:root{--ink:#190023;--purple:#6242F5;--red:#ED1944;--mist:#F8F7F9;--green:#00B86B;--line:#ECE8F0;--muted:#736B78;--white:#fff}
+html,body{background:var(--mist)!important;color:var(--ink)!important}
+body{font-family:Inter,Tahoma,Arial,sans-serif!important}
+.sidebar{background:var(--ink)!important;width:218px!important;padding:20px 12px!important}
+.shell{margin-right:218px!important}
+.logo{font-size:18px!important;letter-spacing:-.02em!important;padding:4px 10px 20px!important}
+.logo small{color:#B9AEC0!important;font-size:10px!important}
+.navBtn{color:#D8D0DC!important;border-radius:12px!important;padding:11px 12px!important;margin:2px 0!important;transition:.18s ease!important}
+.navBtn:hover{background:#ffffff12!important;color:#fff!important}
+.navBtn.active{background:#fff!important;color:var(--ink)!important;box-shadow:0 6px 20px #00000014!important}
+.topbar{height:64px!important;background:#ffffffee!important;backdrop-filter:blur(10px)!important;border-bottom:1px solid var(--line)!important;padding:0 24px!important}
+.content{padding:24px!important;max-width:1500px!important}
+.companySelect{border:1px solid var(--line)!important;border-radius:12px!important;padding:9px 12px!important;min-width:190px!important;color:var(--ink)!important;box-shadow:none!important}
+.roleTag{background:#F1EDFF!important;color:var(--purple)!important;border-radius:999px!important;padding:7px 11px!important;font-weight:800!important}
+.pageHead h1{font-size:24px!important;letter-spacing:-.02em!important;color:var(--ink)!important}
+.pageHead p,.muted,.tiny{color:var(--muted)!important}
+.primary{background:var(--purple)!important;color:#fff!important;border-radius:11px!important;padding:10px 15px!important;box-shadow:0 6px 18px #6242F522!important}
+.primary:hover{filter:brightness(.97)!important}
+.secondary{background:#F2EFFF!important;color:#5132E4!important;border-radius:11px!important}
+.approve{background:#E7FFF3!important;color:#087A4F!important;border-radius:10px!important}
+.reject{background:#FFF0F3!important;color:var(--red)!important;border-radius:10px!important}
+.metrics{gap:14px!important}
+.metric,.card,.section,.box{background:#fff!important;border:1px solid var(--line)!important;border-radius:16px!important;box-shadow:0 10px 28px #19002308!important}
+.metric{padding:17px!important}
+.metric b{font-size:27px!important;color:var(--ink)!important}
+.card{padding:17px!important}
+.jobCard:hover{transform:translateY(-2px)!important;box-shadow:0 14px 30px #19002310!important}
+.jobIcon,.featureIcon,.avatar{background:#F1EDFF!important;color:var(--purple)!important}
+.boardHint{background:#F2EFFF!important;color:#5035C9!important;border:1px solid #E5DEFF!important;border-radius:12px!important}
+.col{background:#F2EFF4!important;border-radius:16px!important}
+.col.dragover{border-color:var(--purple)!important}
+.candidate{border:1px solid var(--line)!important;border-radius:14px!important;box-shadow:0 6px 16px #19002308!important}
+.stageSelect,input,textarea,select{border-color:#DCD4E1!important;border-radius:10px!important;outline:none!important}
+input:focus,textarea:focus,select:focus{border-color:var(--purple)!important;box-shadow:0 0 0 3px #6242F514!important}
+.fileBox{background:#FCFBFD!important;border-color:#CFC5D5!important}
+.event{border-right-color:#B9A9FF!important;background:#FBFAFD!important}
+.commentItem,.commItem{background:#FBFAFD!important}
+.status.approved{background:#E8FFF3!important;color:#087A4F!important}.status.rejected{background:#FFF0F3!important;color:var(--red)!important}.status.pending{background:#FFF8E6!important;color:#8A6500!important}
+.loginPage{background:linear-gradient(135deg,#F8F7F9 0%,#F2EEFF 100%)!important}
+.loginBox{border:1px solid var(--line)!important;border-radius:20px!important;box-shadow:0 24px 70px #19002316!important}
+.loginBrand{color:var(--purple)!important;letter-spacing:.08em!important}
+.logout{background:#ffffff12!important;border:1px solid #ffffff1c!important;border-radius:10px!important}
+.sideBottom{border-top-color:#ffffff1f!important}
+@media(max-width:900px){.sidebar{width:100%!important}.shell{margin-right:0!important}}
