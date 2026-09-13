@@ -14,32 +14,35 @@ export default function App({ Component, pageProps }) {
     const syncLocal=()=>{
       try{
         const raw=localStorage.getItem('recruitment_os_session')
-        const nextSession=raw?JSON.parse(raw):null
-        const nextOrg=localStorage.getItem('recruitment_os_active_org')||''
-        setSession(prev=>prev?.access_token===nextSession?.access_token&&prev?.user?.id===nextSession?.user?.id?prev:nextSession)
-        setOrgId(prev=>prev===nextOrg?prev:nextOrg)
+        setSession(raw?JSON.parse(raw):null)
+        setOrgId(localStorage.getItem('recruitment_os_active_org')||'')
       }catch{}
     }
-    syncLocal()
-    const timer=setInterval(syncLocal,1000)
-    return()=>clearInterval(timer)
-  },[])
-
-  useEffect(()=>{
-    if(typeof document==='undefined')return
-    const find=()=>{
+    const locateAdmin=()=>{
       const el=document.querySelector('.adminGrid')
-      setTarget(prev=>prev===el?prev:el)
+      setTarget(el||null)
     }
-    find()
-    const mo=new MutationObserver(find)
-    mo.observe(document.body,{childList:true,subtree:true})
-    return()=>mo.disconnect()
+    syncLocal()
+    const onStorage=()=>syncLocal()
+    const onClick=e=>{
+      const btn=e.target?.closest?.('.navBtn')
+      if(!btn)return
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        syncLocal()
+        locateAdmin()
+      }))
+    }
+    window.addEventListener('storage',onStorage)
+    document.addEventListener('click',onClick)
+    return()=>{
+      window.removeEventListener('storage',onStorage)
+      document.removeEventListener('click',onClick)
+    }
   },[])
 
   return <>
     <Component {...pageProps} />
-    {target&&session?.user?.id&&orgId&&createPortal(<AdminUsersInline session={session} orgId={orgId}/>,target)}
+    {target?.isConnected&&session?.user?.id&&orgId&&createPortal(<AdminUsersInline session={session} orgId={orgId}/>,target)}
     <style jsx global>{`
       .content>.pageHead+.pageHead{display:none!important}
       .adminGrid>.section:nth-child(2){display:none!important}
@@ -67,7 +70,10 @@ function AdminUsersInline({session,orgId}){
     return d
   }
 
-  async function load(){if(!session?.user?.id||!orgId)return;try{const d=await callData('list_members');setMembers(d.members||[])}catch(e){setMsg(e.message)}}
+  async function load(){
+    if(!session?.user?.id||!orgId)return
+    try{const d=await callData('list_members');setMembers(d.members||[])}catch(e){setMsg(e.message)}
+  }
   useEffect(()=>{load()},[session?.user?.id,orgId])
 
   async function createUser(){
