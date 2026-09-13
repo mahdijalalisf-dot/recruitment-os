@@ -1,13 +1,12 @@
 import '../styles/minimal.css'
 import {useEffect,useState} from 'react'
-import {createPortal} from 'react-dom'
 
 const ROLES=[['hr_admin','HR Admin'],['hr','HR'],['hiring_manager','Hiring Manager'],['interviewer','Interviewer'],['viewer','Viewer']]
 
 export default function App({ Component, pageProps }) {
   const [orgId,setOrgId]=useState('')
   const [session,setSession]=useState(null)
-  const [target,setTarget]=useState(null)
+  const [showAdminUsers,setShowAdminUsers]=useState(false)
 
   useEffect(()=>{
     if(typeof window==='undefined')return
@@ -18,19 +17,19 @@ export default function App({ Component, pageProps }) {
         setOrgId(localStorage.getItem('recruitment_os_active_org')||'')
       }catch{}
     }
-    const locateAdmin=()=>{
-      const el=document.querySelector('.adminGrid')
-      setTarget(el||null)
+    const detectActive=()=>{
+      const active=document.querySelector('.navBtn.active')
+      setShowAdminUsers(!!active && (active.textContent||'').includes('HR Admin'))
     }
     syncLocal()
+    setTimeout(detectActive,0)
     const onStorage=()=>syncLocal()
     const onClick=e=>{
       const btn=e.target?.closest?.('.navBtn')
       if(!btn)return
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        syncLocal()
-        locateAdmin()
-      }))
+      const isAdmin=(btn.textContent||'').includes('HR Admin')
+      setShowAdminUsers(isAdmin)
+      syncLocal()
     }
     window.addEventListener('storage',onStorage)
     document.addEventListener('click',onClick)
@@ -42,20 +41,22 @@ export default function App({ Component, pageProps }) {
 
   return <>
     <Component {...pageProps} />
-    {target?.isConnected&&session?.user?.id&&orgId&&createPortal(<AdminUsersInline session={session} orgId={orgId}/>,target)}
+    {showAdminUsers&&session?.user?.id&&orgId&&<div className="adminUsersDock"><AdminUsersInline session={session} orgId={orgId}/></div>}
     <style jsx global>{`
       .content>.pageHead+.pageHead{display:none!important}
       .adminGrid>.section:nth-child(2){display:none!important}
-      .adminEnhancedSection{order:2}
-      .adminEnhancedSection .userCreateRow{display:grid;grid-template-columns:minmax(210px,1.5fr) minmax(150px,.9fr) minmax(190px,1fr) auto;gap:10px;align-items:center;margin-bottom:14px}
+      .adminUsersDock{position:fixed;z-index:20;left:28px;top:176px;width:calc((100vw - 320px)/2 - 38px);min-width:430px;max-width:760px}
+      .adminUsersDock .adminEnhancedSection{width:100%!important;margin:0!important}
+      .adminEnhancedSection .userCreateRow{display:grid;grid-template-columns:minmax(180px,1.3fr) minmax(130px,.8fr) minmax(170px,1fr) auto;gap:10px;align-items:center;margin-bottom:14px}
       .adminEnhancedSection .userCreateRow input,.adminEnhancedSection .userCreateRow select{min-width:0}
-      .adminEnhancedSection .memberEnhanced{display:grid;grid-template-columns:minmax(220px,1fr) 170px auto auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid #eee9f1}
+      .adminEnhancedSection .memberEnhanced{display:grid;grid-template-columns:minmax(190px,1fr) 145px auto auto;gap:10px;align-items:center;padding:12px 0;border-top:1px solid #eee9f1}
       .adminEnhancedSection .memberEnhanced:first-of-type{border-top:0}
       .adminEnhancedSection .memberEnhanced .deleteUser{background:#fff0f3!important;color:#ed1944!important;border:1px solid #ffd9e1!important;border-radius:9px!important;padding:8px 11px!important;font-weight:800!important;cursor:pointer}
       .adminEnhancedSection .memberEnhanced .deleteUser:disabled{opacity:.45;cursor:not-allowed}
       .adminEnhancedSection .memberEnhanced label{display:flex;gap:6px;align-items:center;white-space:nowrap}
-      .adminEnhancedSection .userHelp{font-size:11px;color:#746d78;margin:-4px 0 12px}
-      @media(max-width:900px){.adminEnhancedSection .userCreateRow{grid-template-columns:1fr}.adminEnhancedSection .memberEnhanced{grid-template-columns:1fr}}
+      .adminEnhancedSection .userHelp{font-size:11px;color:#746d78;margin:-4px 0 12px;line-height:1.6}
+      @media(max-width:1200px){.adminUsersDock{position:relative;z-index:2;left:auto;top:auto;width:auto;min-width:0;max-width:none;margin:18px 20px 0 280px}.adminEnhancedSection .userCreateRow{grid-template-columns:1fr 1fr}.adminEnhancedSection .memberEnhanced{grid-template-columns:1fr 140px auto auto}}
+      @media(max-width:850px){.adminUsersDock{margin:18px}.adminEnhancedSection .userCreateRow,.adminEnhancedSection .memberEnhanced{grid-template-columns:1fr}}
     `}</style>
   </>
 }
