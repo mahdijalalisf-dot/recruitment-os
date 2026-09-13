@@ -1,48 +1,45 @@
 import '../styles/minimal.css'
-import {useEffect,useRef,useState} from 'react'
+import {useEffect,useState} from 'react'
 import {createPortal} from 'react-dom'
 
 const ROLES=[['hr_admin','HR Admin'],['hr','HR'],['hiring_manager','Hiring Manager'],['interviewer','Interviewer'],['viewer','Viewer']]
 
 export default function App({ Component, pageProps }) {
-  const [admin,setAdmin]=useState(false)
   const [orgId,setOrgId]=useState('')
   const [session,setSession]=useState(null)
   const [target,setTarget]=useState(null)
-  const lastKey=useRef('')
 
   useEffect(()=>{
     if(typeof window==='undefined')return
-    let cancelled=false
-    const refreshTarget=()=>setTarget(document.querySelector('.adminGrid'))
-    const sync=async()=>{
+    const syncLocal=()=>{
       try{
-        const s=JSON.parse(localStorage.getItem('recruitment_os_session'))
-        const oid=localStorage.getItem('recruitment_os_active_org')||''
-        const key=`${s?.user?.id||''}:${oid}:${s?.access_token?.slice(-16)||''}`
-        refreshTarget()
-        if(key===lastKey.current)return
-        lastKey.current=key
-        setSession(s||null);setOrgId(oid)
-        if(!s?.user?.id||!oid){setAdmin(false);return}
-        const r=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${s.access_token||''}`,'X-Refresh-Token':s.refresh_token||''},body:JSON.stringify({op:'bootstrap',userId:s.user.id,refreshToken:s.refresh_token||''})})
-        const d=await r.json().catch(()=>({}))
-        if(cancelled)return
-        const m=(d.memberships||[]).find(x=>x.organization_id===oid&&x.is_active)
-        setAdmin(m?.role==='hr_admin')
-      }catch{if(!cancelled)setAdmin(false)}
+        const raw=localStorage.getItem('recruitment_os_session')
+        const nextSession=raw?JSON.parse(raw):null
+        const nextOrg=localStorage.getItem('recruitment_os_active_org')||''
+        setSession(prev=>prev?.access_token===nextSession?.access_token&&prev?.user?.id===nextSession?.user?.id?prev:nextSession)
+        setOrgId(prev=>prev===nextOrg?prev:nextOrg)
+      }catch{}
     }
-    const handle=()=>requestAnimationFrame(()=>requestAnimationFrame(sync))
-    sync()
-    document.addEventListener('click',handle,true)
-    document.addEventListener('change',handle,true)
-    window.addEventListener('storage',handle)
-    return()=>{cancelled=true;document.removeEventListener('click',handle,true);document.removeEventListener('change',handle,true);window.removeEventListener('storage',handle)}
+    syncLocal()
+    const timer=setInterval(syncLocal,1000)
+    return()=>clearInterval(timer)
+  },[])
+
+  useEffect(()=>{
+    if(typeof document==='undefined')return
+    const find=()=>{
+      const el=document.querySelector('.adminGrid')
+      setTarget(prev=>prev===el?prev:el)
+    }
+    find()
+    const mo=new MutationObserver(find)
+    mo.observe(document.body,{childList:true,subtree:true})
+    return()=>mo.disconnect()
   },[])
 
   return <>
     <Component {...pageProps} />
-    {admin&&target&&createPortal(<AdminUsersInline session={session} orgId={orgId}/>,target)}
+    {target&&session?.user?.id&&orgId&&createPortal(<AdminUsersInline session={session} orgId={orgId}/>,target)}
     <style jsx global>{`
       .content>.pageHead+.pageHead{display:none!important}
       .adminGrid>.section:nth-child(2){display:none!important}
