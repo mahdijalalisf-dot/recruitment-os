@@ -17,6 +17,9 @@ export default async function handler(req,res){
     clearTimeout(timer)
     const data=await r.json().catch(()=>({}))
     if(!r.ok) return res.status(r.status).json({error:data?.msg||data?.message||data?.error_description||'Login failed'})
+    if(data?.user?.user_metadata?.must_change_password){
+      return res.status(403).json({error:'این رمز موقت است. قبل از ورود باید رمز جدید بسازید.',code:'PASSWORD_CHANGE_REQUIRED'})
+    }
     return res.status(200).json({access_token:data.access_token,refresh_token:data.refresh_token,user:data.user})
   }catch(e){
     return res.status(500).json({error:e.name==='AbortError'?'Auth server timeout':'Authentication error'})
