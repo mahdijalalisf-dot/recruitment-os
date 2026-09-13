@@ -45,18 +45,21 @@ export default function App({ Component, pageProps }) {
     <style jsx global>{`
       .content>.pageHead+.pageHead{display:none!important}
       .adminGrid>.section:nth-child(2){display:none!important}
-      .adminUsersDock{position:fixed;z-index:20;left:28px;top:176px;width:calc((100vw - 320px)/2 - 38px);min-width:430px;max-width:760px}
-      .adminUsersDock .adminEnhancedSection{width:100%!important;margin:0!important}
-      .adminEnhancedSection .userCreateRow{display:grid;grid-template-columns:minmax(180px,1.3fr) minmax(130px,.8fr) minmax(170px,1fr) auto;gap:10px;align-items:center;margin-bottom:14px}
-      .adminEnhancedSection .userCreateRow input,.adminEnhancedSection .userCreateRow select{min-width:0}
-      .adminEnhancedSection .memberEnhanced{display:grid;grid-template-columns:minmax(190px,1fr) 145px auto auto;gap:10px;align-items:center;padding:12px 0;border-top:1px solid #eee9f1}
+      .adminUsersDock{position:fixed;z-index:20;left:26px;top:174px;width:calc((100vw - 282px)/2);min-width:0;max-width:none}
+      .adminUsersDock .adminEnhancedSection{width:100%!important;margin:0!important;min-height:216px}
+      .adminEnhancedSection>.row{margin-bottom:14px}
+      .adminEnhancedSection .userCreateRow{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(135px,.85fr) minmax(0,1.12fr) 108px;gap:10px;align-items:center;margin-bottom:12px}
+      .adminEnhancedSection .userCreateRow input,.adminEnhancedSection .userCreateRow select{min-width:0;width:100%;height:40px;padding:9px 10px}
+      .adminEnhancedSection .userCreateRow .primary{width:108px;height:40px;padding:7px 10px;line-height:1.15}
+      .adminEnhancedSection .memberEnhanced{display:grid;grid-template-columns:minmax(0,1fr) 175px 92px 118px;gap:12px;align-items:center;padding:14px 0;border-top:1px solid #eee9f1}
       .adminEnhancedSection .memberEnhanced:first-of-type{border-top:0}
-      .adminEnhancedSection .memberEnhanced .deleteUser{background:#fff0f3!important;color:#ed1944!important;border:1px solid #ffd9e1!important;border-radius:9px!important;padding:8px 11px!important;font-weight:800!important;cursor:pointer}
+      .adminEnhancedSection .memberEnhanced select{width:100%;height:36px;padding:7px 9px}
+      .adminEnhancedSection .memberEnhanced .deleteUser{background:#fff0f3!important;color:#ed1944!important;border:1px solid #ffd9e1!important;border-radius:9px!important;padding:8px 11px!important;font-weight:800!important;cursor:pointer;min-height:36px}
       .adminEnhancedSection .memberEnhanced .deleteUser:disabled{opacity:.45;cursor:not-allowed}
-      .adminEnhancedSection .memberEnhanced label{display:flex;gap:6px;align-items:center;white-space:nowrap}
-      .adminEnhancedSection .userHelp{font-size:11px;color:#746d78;margin:-4px 0 12px;line-height:1.6}
-      @media(max-width:1200px){.adminUsersDock{position:relative;z-index:2;left:auto;top:auto;width:auto;min-width:0;max-width:none;margin:18px 20px 0 280px}.adminEnhancedSection .userCreateRow{grid-template-columns:1fr 1fr}.adminEnhancedSection .memberEnhanced{grid-template-columns:1fr 140px auto auto}}
-      @media(max-width:850px){.adminUsersDock{margin:18px}.adminEnhancedSection .userCreateRow,.adminEnhancedSection .memberEnhanced{grid-template-columns:1fr}}
+      .adminEnhancedSection .memberEnhanced label{display:flex;gap:6px;align-items:center;white-space:nowrap;justify-content:center}
+      .adminEnhancedSection .userHelp{font-size:11px;color:#746d78;margin:0 0 12px;line-height:1.55}
+      @media(max-width:1250px){.adminUsersDock{position:relative;z-index:2;left:auto;top:auto;width:auto;min-width:0;max-width:none;margin:18px 18px 0 250px}.adminEnhancedSection .userCreateRow{grid-template-columns:1fr 1fr}.adminEnhancedSection .userCreateRow .primary{width:100%}.adminEnhancedSection .memberEnhanced{grid-template-columns:1fr 155px 90px 110px}}
+      @media(max-width:850px){.adminUsersDock{margin:18px}.adminEnhancedSection .userCreateRow,.adminEnhancedSection .memberEnhanced{grid-template-columns:1fr}.adminEnhancedSection .memberEnhanced label{justify-content:flex-start}}
     `}</style>
   </>
 }
