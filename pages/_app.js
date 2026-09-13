@@ -1,5 +1,5 @@
 import '../styles/minimal.css'
-import {useEffect,useState} from 'react'
+import {useEffect,useRef,useState} from 'react'
 import {createPortal} from 'react-dom'
 
 const ROLES=[['hr_admin','HR Admin'],['hr','HR'],['hiring_manager','Hiring Manager'],['interviewer','Interviewer'],['viewer','Viewer']]
@@ -9,33 +9,35 @@ export default function App({ Component, pageProps }) {
   const [orgId,setOrgId]=useState('')
   const [session,setSession]=useState(null)
   const [target,setTarget]=useState(null)
+  const lastKey=useRef('')
 
   useEffect(()=>{
     if(typeof window==='undefined')return
-    const sync=()=>{
+    let cancelled=false
+    const refreshTarget=()=>setTarget(document.querySelector('.adminGrid'))
+    const sync=async()=>{
       try{
         const s=JSON.parse(localStorage.getItem('recruitment_os_session'))
         const oid=localStorage.getItem('recruitment_os_active_org')||''
+        const key=`${s?.user?.id||''}:${oid}:${s?.access_token?.slice(-16)||''}`
+        refreshTarget()
+        if(key===lastKey.current)return
+        lastKey.current=key
         setSession(s||null);setOrgId(oid)
         if(!s?.user?.id||!oid){setAdmin(false);return}
-        fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${s.access_token||''}`,'X-Refresh-Token':s.refresh_token||''},body:JSON.stringify({op:'bootstrap',userId:s.user.id,refreshToken:s.refresh_token||''})}).then(r=>r.json()).then(d=>{
-          const m=(d.memberships||[]).find(x=>x.organization_id===oid&&x.is_active)
-          setAdmin(m?.role==='hr_admin')
-        }).catch(()=>setAdmin(false))
-      }catch{setAdmin(false)}
+        const r=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${s.access_token||''}`,'X-Refresh-Token':s.refresh_token||''},body:JSON.stringify({op:'bootstrap',userId:s.user.id,refreshToken:s.refresh_token||''})})
+        const d=await r.json().catch(()=>({}))
+        if(cancelled)return
+        const m=(d.memberships||[]).find(x=>x.organization_id===oid&&x.is_active)
+        setAdmin(m?.role==='hr_admin')
+      }catch{if(!cancelled)setAdmin(false)}
     }
+    const handle=()=>requestAnimationFrame(()=>requestAnimationFrame(sync))
     sync()
-    const timer=setInterval(sync,1200)
-    return()=>clearInterval(timer)
-  },[])
-
-  useEffect(()=>{
-    if(typeof document==='undefined')return
-    const find=()=>setTarget(document.querySelector('.adminGrid'))
-    find()
-    const mo=new MutationObserver(find)
-    mo.observe(document.body,{childList:true,subtree:true})
-    return()=>mo.disconnect()
+    document.addEventListener('click',handle,true)
+    document.addEventListener('change',handle,true)
+    window.addEventListener('storage',handle)
+    return()=>{cancelled=true;document.removeEventListener('click',handle,true);document.removeEventListener('change',handle,true);window.removeEventListener('storage',handle)}
   },[])
 
   return <>
