@@ -20,3 +20,5 @@ html,body{background:var(--mist)!important;color:var(--ink)!important;margin:0}b
 .performancePage{display:flex;flex-direction:column;gap:18px}.perfScoreHero{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;margin-bottom:18px;border-radius:16px;background:#f4f0ff;border:1px solid #e5dcff}.perfScoreHero span{font-weight:700}.perfScoreHero b{font-size:30px;color:#6242F5}.performancePage .searchRow{margin-top:10px}.performancePage .scoreGrid input{width:100%;padding:10px 12px}
 
 .voiceFeedback{margin:20px 0;padding:16px;border:1px solid #e7e1ec;border-radius:14px;background:#fbfafc}.voiceFeedback .wideText{margin-top:12px;min-height:110px;width:100%}
+
+.voiceFeedback{margin:22px 0 16px;padding:16px;border:1px solid #e7e1ec;border-radius:14px;background:#fcfbfd}.voiceFeedback .wideText{width:100%;min-height:120px;margin-top:12px}.voiceFeedback .row{align-items:center;justify-content:space-between}
