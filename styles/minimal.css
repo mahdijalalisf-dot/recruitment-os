@@ -24,3 +24,6 @@ html,body{background:var(--mist)!important;color:var(--ink)!important;margin:0}b
 .voiceFeedback{margin:22px 0 16px;padding:16px;border:1px solid #e7e1ec;border-radius:14px;background:#fcfbfd}.voiceFeedback .wideText{width:100%;min-height:120px;margin-top:12px}.voiceFeedback .row{align-items:center;justify-content:space-between}
 
 .teamChooser{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px}.teamCard{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:18px;border:1px solid #e7e1ec;border-radius:14px;background:#fff;cursor:pointer;text-align:left}.teamCard span{font-size:12px;color:#777}.teamCard.active{border:2px solid #6242F5;background:#f6f3ff}.teamCard.active b{color:#6242F5}
+
+/* Performance layout: always show both cycle and member panels */
+.performanceGrid{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;gap:14px!important;align-items:start}.performanceGrid>.section{display:block!important;visibility:visible!important;min-width:0}.perfMembers,.perfCycles{min-height:190px}.perfMembers .inline,.perfCycles .inline{display:flex!important;gap:10px}.perfMembers .inline input,.perfCycles .inline input{min-width:0;flex:1}@media(max-width:900px){.performanceGrid{grid-template-columns:1fr!important}}
