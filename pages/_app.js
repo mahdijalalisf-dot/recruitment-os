@@ -43,7 +43,7 @@ export default function App({ Component, pageProps }) {
     {showAdminUsers&&session?.user?.id&&orgId&&<div className="adminUsersDock"><AdminUsersInline session={session} orgId={orgId}/></div>}
     <style jsx global>{`
       .content>.pageHead+.pageHead{display:none!important}
-      .adminGrid>.section:nth-child(2){display:none!important}
+      .adminGrid:not(.performanceGrid)>.section:nth-child(2){display:none!important}
       .adminUsersDock{position:absolute;z-index:4;left:26px;right:242px;top:420px}
       .adminUsersDock .adminEnhancedSection{width:100%!important;margin:0!important;padding:20px!important}
       .adminEnhancedSection>.row{margin-bottom:18px}
