@@ -21,7 +21,10 @@ export default async function handler(req,res){
   if(req.method!=='POST') return res.status(405).json({error:'Method not allowed'})
   let token=(req.headers.authorization||'').replace(/^Bearer\s+/i,'')
   let refreshToken=req.headers['x-refresh-token']||req.body?.refreshToken||''
-  const {email,password,role='viewer',orgId}=req.body||{}
+  const {email,password,role='viewer',orgId,boardAccess=[]}=req.body||{}
+  const boards={Digify:'1ffa3832-345f-409b-9a0d-02eda8f270ec',Matin:'9baec9ca-6fbb-4fa0-9ae0-34781067f6c1'}
+  const chosen=[...new Set(boardAccess.map(name=>boards[name]).filter(Boolean))]
+  if(!chosen.length)return res.status(400).json({error:'Select at least one company board'})
   const normalizedEmail=(email||'').trim().toLowerCase()
   if(!normalizedEmail||!password||!orgId) return res.status(400).json({error:'Email, temporary password and company are required'})
   if(password.length<8) return res.status(400).json({error:'Temporary password must be at least 8 characters'})
@@ -36,7 +39,7 @@ export default async function handler(req,res){
     let create=await jsonFetch(`${SUPABASE_URL}/rest/v1/rpc/admin_create_user_no_email`,{
       method:'POST',
       headers:{apikey:KEY,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-      body:JSON.stringify({org:orgId,member_email:normalizedEmail,member_password:password,member_role:role})
+      body:JSON.stringify({org:chosen[0],member_email:normalizedEmail,member_password:password,member_role:role})
     })
     if(create.r.status===401&&refreshToken){
       const s=await refreshSession(refreshToken)
@@ -52,6 +55,10 @@ export default async function handler(req,res){
     if(!create.r.ok){
       const msg=create.data?.message||create.data?.msg||create.data?.error_description||create.data?.hint||'Could not create user'
       return res.status(create.r.status).json({error:msg})
+    }
+    for(const target_org of chosen.slice(1)){
+      const grant=await jsonFetch(`${SUPABASE_URL}/rest/v1/rpc/admin_grant_org_access`,{method:'POST',headers:{apikey:KEY,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({member_email:normalizedEmail,target_org,member_role:role})})
+      if(!grant.r.ok)return res.status(207).json({ok:false,error:'User created but additional company access failed: '+(grant.data?.message||'Unknown error'),user_id:create.data,session:refreshed})
     }
     return res.status(200).json({ok:true,user_id:create.data,session:refreshed})
   }catch(e){return res.status(500).json({error:e.message||'User creation failed'})}
